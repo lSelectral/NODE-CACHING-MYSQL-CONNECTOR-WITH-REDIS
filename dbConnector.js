@@ -8,9 +8,9 @@ const con = db.createPool({
     user: env.DB_USERNAME,
     password: env.DB_PASSWORD,
     database: env.DB_NAME,
-    connectionLimit: 2000,
+    connectionLimit: 20000,
     queueLimit: 20,
-    acquireTimeout: 10000000,
+    acquireTimeout: 1000000,
     multipleStatements: true,
     port: env.DB_PORT
 

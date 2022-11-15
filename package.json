@@ -1,5 +1,5 @@
 {
-  "name": "express-utils",
+  "name": "node-caching-mysql-connector-with-redis",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
