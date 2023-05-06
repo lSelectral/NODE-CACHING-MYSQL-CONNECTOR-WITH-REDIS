@@ -1,89 +1,59 @@
 const redis = require('redis');
+const { promisify } = require('util');
 require('dotenv').config();
-
 
 const client = redis.createClient({
     host: process.env.REDIS_SERVER,
-    post: process.env.REDIS_PORT,
+    port: process.env.REDIS_PORT,
     password: process.env.REDIS_PASSWORD
 });
-
 
 client.on('error', (err) => {
     console.error(err);
 });
 
+const existsAsync = promisify(client.exists).bind(client);
+const getAsync = promisify(client.get).bind(client);
+const setexAsync = promisify(client.setex).bind(client);
+const delAsync = promisify(client.del).bind(client);
+const keysAsync = promisify(client.keys).bind(client);
+
 module.exports = {
     async getArrayItem(key) {
-        return new Promise((resolve, reject) => {
-            client.exists(key, (err, ok) => {
-                if (err) reject(err.message);
-                else {
-                    client.get(key, (err, reply) => {
-                        if (err) reject(err.message);
-                        else {
-                            if (reply) resolve(JSON.parse(reply));
-                            else resolve([]);
-                        }
-                    });
-                }
-            });
-        })
+        const exists = await existsAsync(key);
+        if (exists) {
+            const reply = await getAsync(key);
+            return JSON.parse(reply);
+        }
+        return [];
     },
-    async addArrayItem(key, array,expiryDate=40000) {
-        return new Promise((resolve, reject) => {
-            client.SETEX(key, parseInt((+new Date)/1000) + expiryDate, JSON.stringify(array), (ok) => {
-                resolve(array);
-            });
-        })
+
+    async addArrayItem(key, array, expiryDate = 40000) {
+        await setexAsync(key, expiryDate, JSON.stringify(array));
+        return array;
     },
+
     async delKeyItem(keys) {
-        return new Promise((resolve, reject) => {
-            client.DEL(keys, (ok) => {
-                resolve();
-            });
-        });
+        await delAsync(keys);
     },
+
     async delPrefixKeyItem(keys) {
-        return new Promise((resolve, reject) => {
-            if (Array.isArray(keys)) {
-                keys.forEach((el, elIndex) => {
-                    client.keys(el, (err, data) => {
-                        if (err) reject(err.message);
-                        else {
-                            if (!data.length) {
-                                resolve();
-                            }
-                            data.forEach((keyItem, index) => {
-                                client.DEL(keyItem, (ok) => {
-                                    if (index + 1 == data.length && keys.length == elIndex + 1) {
-                                        resolve();
-                                    }
-                                });
-                            });
-                        }
-                    })
-                })
-            } else {
-                client.keys(keys, (err, data) => {
-                    if (err) reject(err.message);
-                    else {
-                        if (!data.length) {
-                            resolve();
-                        }
-                        data.forEach((keyItem, index) => {
-                            client.DEL(keyItem, (ok) => {
-                                if (index + 1 == data.length) {
-                                    resolve();
-                                }
-                            });
-                        });
-                    }
-                })
+        if (Array.isArray(keys)) {
+            for (const el of keys) {
+                const data = await keysAsync(el);
+                if (data.length) {
+                    await Promise.all(data.map(keyItem => delAsync(keyItem)));
+                }
             }
-        });
+        } else {
+            const data = await keysAsync(keys);
+            if (data.length) {
+                await Promise.all(data.map(keyItem => delAsync(keyItem)));
+            }
+        }
     },
+
     getRedisClient() {
         return client;
     }
-}
+};
