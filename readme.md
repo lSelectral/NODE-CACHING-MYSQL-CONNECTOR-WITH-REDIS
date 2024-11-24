@@ -133,6 +133,7 @@ DB_USERNAME="root"
 DB_PASSWORD=""
 DB_NAME=""
 DB_PORT=""
+TIMEZONE="+00:00" // default
 
 ## redis veriables
 REDIS_SERVER="localhost"

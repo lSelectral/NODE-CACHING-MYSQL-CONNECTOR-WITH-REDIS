@@ -2,7 +2,6 @@ const db = require('mysql2/promise');
 const { getArrayItem, addArrayItem, delPrefixKeyItem } = require('./redis.Connector');
 require('dotenv').config();
 const env = process.env;
-
 const con = db.createPool({
     host: env.DB_HOST,
     user: env.DB_USERNAME,
@@ -12,25 +11,45 @@ const con = db.createPool({
     queueLimit: 20,
     acquireTimeout: 1000000,
     multipleStatements: true,
-    port: env.DB_PORT
-});
+    port: env.DB_PORT,
+    timezone: env.TIMEZONE ? env.TIMEZONE : '+00:00',
+  })
 
 module.exports = {
+    /**
+     * Executes a SQL query and returns the result from the cache or the database.
+     * If a resetCacheName is provided, it deletes the cache item before executing the query.
+     *
+     * @param {string} sql - The SQL query to execute.
+     * @param {Array} parameters - The parameters to be passed to the SQL query.
+     * @param {string|null} resetCacheName - The name of the cache item to reset (optional).
+     * @returns {Promise<any>} - A promise that resolves with the result of the query.
+     * @throws {Error} - If an error occurs during the query execution.
+     */
     async QuaryCache(sql, parameters, resetCacheName = null) {
         try {
             const connection = await con.getConnection();
             const [data] = await connection.query(sql, parameters);
             connection.release();
-
             if (resetCacheName) {
                 await delPrefixKeyItem(resetCacheName);
             }
-
             return data;
         } catch (err) {
             throw new Error(err.message);
         }
     },
+    /**
+     * Retrieves data from cache or database based on the provided SQL query and parameters.
+     * If the data is found in the cache, it is returned. Otherwise, the data is fetched from the database,
+     * stored in the cache, and then returned.
+     *
+     * @param {string} sql - The SQL query to be executed.
+     * @param {Array} parameters - The parameters to be passed to the SQL query.
+     * @param {string} cacheName - The name of the cache to store the data.
+     * @returns {Promise<Array>} - A promise that resolves to the retrieved data.
+     * @throws {Error} - If there is an error while retrieving the data.
+     */
     async getCacheQuery(sql, parameters, cacheName) {
         try {
             const cachedData = await getArrayItem(cacheName);
@@ -49,6 +68,20 @@ module.exports = {
             throw new Error(err.message);
         }
     },
+
+    /**
+     * Retrieves paginated data from cache or database based on the provided SQL query and parameters.
+     * If the data is available in cache, it is returned directly. Otherwise, the data is fetched from the database,
+     * paginated, and then stored in the cache for future use.
+     *
+     * @param {string} sql - The SQL query to execute.
+     * @param {Array} parameters - The parameters to be used in the SQL query.
+     * @param {string} cacheName - The name of the cache to store the data.
+     * @param {number} page - The page number of the data to retrieve.
+     * @param {number} [pageSize=30] - The number of records per page. Defaults to 30 if not provided.
+     * @returns {Promise<Object>} - A promise that resolves to an object containing the paginated data.
+     * @throws {Error} - If an error occurs during the execution of the function.
+     */
     async getCacheQueryPagination(sql, parameters, cacheName, page, pageSize = 30) {
         try {
             const cachedData = await getArrayItem(cacheName);
@@ -61,8 +94,8 @@ module.exports = {
             const [data] = await connection.query(sql, parameters);
             connection.release();
 
-            let filteredData = data.filter(r => r.id > 0);
-            let list = [];
+            const filteredData = data.filter(r => r.id > 0);
+            const list = [];
 
             for (let i = 0; i < filteredData.length; i += pageSize) {
                 list.push(filteredData.slice(i, i + pageSize));
@@ -70,7 +103,7 @@ module.exports = {
 
             const cPage = parseInt(page) >= 0 ? page : 0;
 
-            if (!filteredData.length || !(list.length - 1 >= cPage)) {
+            if (!filteredData.length || (list.length - 1 < cPage)) {
                 return {
                     totalCount: filteredData.length,
                     pageCount: list.length,
