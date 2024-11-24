@@ -9,11 +9,11 @@ const con = db.createPool({
     database: env.DB_NAME,
     connectionLimit: 20000,
     queueLimit: 20,
-    acquireTimeout: 1000000,
+    connectTimeout: 1000000,  // acquireTimeout yerine connectTimeout kullanıldı
     multipleStatements: true,
     port: env.DB_PORT,
-    timezone: env.TIMEZONE ? env.TIMEZONE : '+00:00',
-  })
+    timezone: env?.TIMEZONE ?? '+00:00',  // Null coalescing operator kullanımı
+});
 
 module.exports = {
     /**
