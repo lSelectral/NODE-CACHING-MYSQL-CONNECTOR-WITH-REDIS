@@ -85,38 +85,33 @@ module.exports = {
     async getCacheQueryPagination(sql, parameters, cacheName, page, pageSize = 30) {
         try {
             const cachedData = await getArrayItem(cacheName);
-
+    
             if (typeof cachedData === 'object' && !Array.isArray(cachedData) && cachedData !== null) {
                 return cachedData;
             }
-
+    
             const connection = await con.getConnection();
-            const [data] = await connection.query(sql, parameters);
+    
+            // Önce orijinal sorguyla toplam sayıyı al
+            const [allData] = await connection.query(sql, parameters);
+            const filteredData = allData.filter(r => r.id > 0);
+            const totalCount = filteredData.length;
+    
+            // Sayfalama için SQL'i düzenle
+            const offset = page * pageSize;
+            const paginatedSql = `${sql} LIMIT ${offset}, ${pageSize}`;
+    
+            // Sayfalanmış veriyi çek
+            const [data] = await connection.query(paginatedSql, parameters);
             connection.release();
-
-            const filteredData = data.filter(r => r.id > 0);
-            const list = [];
-
-            for (let i = 0; i < filteredData.length; i += pageSize) {
-                list.push(filteredData.slice(i, i + pageSize));
-            }
-
-            const cPage = parseInt(page) >= 0 ? page : 0;
-
-            if (!filteredData.length || (list.length - 1 < cPage)) {
-                return {
-                    totalCount: filteredData.length,
-                    pageCount: list.length,
-                    detail: []
-                };
-            }
-
+    
+            // Sonucu hazırla
             const result = {
-                totalCount: filteredData.length,
-                pageCount: list.length,
-                detail: list[cPage]
+                totalCount,
+                pageCount: Math.ceil(totalCount / pageSize),
+                detail: data.filter(r => r.id > 0)
             };
-
+    
             await addArrayItem(cacheName, result);
             return result;
         } catch (err) {
