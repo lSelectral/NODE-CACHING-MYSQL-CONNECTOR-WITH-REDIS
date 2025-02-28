@@ -1,148 +1,216 @@
-## NODE CACHING MYSQL CONNECTOR WITH REDIS V.2.0
+# NODE CACHING MYSQL CONNECTOR WITH REDIS
 
-
-#### NODE CACHING MYSQL CONNECTOR WITH REDIS, MySQL bağlantılarınızı yönetirken ve sorgu sonuçlarını Redis ile önbelleğe alarak performansı artırır.
-
-----
+MySQL bağlantılarınızı yönetirken ve sorgu sonuçlarını Redis ile önbelleğe alarak uygulamanızın performansını artıran bir Node.js kütüphanesi.
 
 ## Özellikler
 
-Belgelerde belirtildiği gibi ortam değişkenlerinizi oluşturun.
-İhtiyacınız olan fonksiyonu içe aktarın ve örneklerde olduğu gibi hemen kullanmaya başlayın.
-Kullanıcı rehberi
+- MySQL sorgu sonuçlarının Redis'te otomatik önbelleğe alınması
+- Sayfalama desteği ile önbellekleme
+- Veri güncellemeleri için önbellek temizleme
+- Anahtar çakışmalarını önlemek için isim alanı (namespace) desteği
+- Parametreli sorgular ile SQL injection koruması
 
-### getCacheQuery kullanım önerisi incelemesi
-----
+## Kurulum
 
-Bu fonksiyon, SQL sorgusunu çalıştırır ve sonucu belirtilen önbellek adıyla Redis'te saklar. Eğer önbellekte veri mevcutsa, sonuçları doğrudan Redis'ten alarak veritabanından sorgu yapma ihtiyacını ortadan kaldırır.
-
-```sh
-  getCacheQuery("sql", parameterArray,"cacheName")
-    .then((data) => {
-        return data;
-    }).catch(err => {
-        throw err;
-    });
-```
-### Örnek kullanım:
-```sh
-
- getCacheQuery("select * from users where companyId=?", [companyId], "userlist-" + companyId)
-    .then((data) => {
-        return data;
-    }).catch(err => {
-        throw err;
-    });
-
+```bash
+npm install node-caching-mysql-connector-with-redis
 ```
 
-Bu örnekte, "select * from users where companyId=?" ifadesiyle bir SQL sorgusu yapılıyor. Burada ? işareti, sorgunun parametrelerinden birini temsil ediyor ve bu parametrelerin değerleri bir dizi olarak veriliyor. Bu örnekte [companyId] olarak verilmiştir. Bu yapı, SQL Injection saldırılarını önlemeye yardımcı olur.
+## Yapılandırma
 
-Sorgu sonucu, Redis'te "userlist-" + companyId şeklinde bir anahtar adı ile önbelleğe alınıyor. companyId değeri, önbellek anahtarının dinamik olarak oluşturulmasına ve belirli bir şirketin kullanıcı listesini önbelleğe almasına yardımcı olur.
+Ortam değişkenlerinizi `.env` dosyasında ayarlayın:
 
-
-
-
-## getCacheQueryPagination kullanım önerisi incelemesi
----
-Bu fonksiyon, sayfalama ile ilgili bilgileri alarak sonuçları sayfalara böler ve belirtilen önbellek adıyla Redis'te saklar. Eğer önbellekte veri mevcutsa, sonuçları doğrudan Redis'ten alarak veritabanından sorgu yapma ihtiyacını ortadan kaldırır.
-
-#### Sayfadaki varsayılan öğe sayısı "30"dur.
-```sh
-  getCacheQueryPagination("sql", parameterArray,"cacheName", currentPage, numberOfElementsIn thePage)
-    .then((data) => {
-        return data;
-    }).catch(err => {
-        throw err;
-    });
 ```
-### Örnek kullanım:
-```sh
-
- getCacheQueryPagination("select * from users where companyId=?", [companyId], "userlist-" + companyId + "-page-" + page, page, 30)
-    .then((data) => {
-        return data;
-    }).catch(err => {
-        throw err;
-    });
-```
-Bu örnekte, aynı SQL sorgusu kullanılıyor, ancak sonuçlar sayfalara bölünüyor. Burada da ? işareti kullanılarak parametre temsil ediliyor ve [companyId] dizisi ile değeri sağlanıyor.
-
-Önbellek anahtarının adı, "userlist-" + companyId + "-page-" + page şeklinde oluşturuluyor. Bu yapı, sayfalamanın Redis'teki önbellekte düzgün bir şekilde çalışmasını sağlar. İstenen sayfa ve sayfadaki öğe sayısı (örnekte 30) da fonksiyona parametre olarak verilir.
-
-Her iki örnekte de, then ve catch blokları, fonksiyonların başarılı sonuçlarını veya olası hatalarını işlemek için kullanılır. Başarılı bir sonuç durumunda, veriler döndürülürken, hata durumunda hata yakalanır ve işlenir.
-
-```diff
-Peki ya farklı olan nedir
-```
-
-getCacheQuery ve getCacheQueryPagination fonksiyonları arasındaki temel fark, getCacheQueryPagination fonksiyonunun sayfalama özelliğini desteklemesidir. İki fonksiyon da, SQL sorgularının sonuçlarını Redis önbelleğine alarak performansı artırmaya yönelik çalışır. Ancak, sayfalama desteği gerektiren durumlar için getCacheQueryPagination kullanılır.
-
-getCacheQuery fonksiyonu, SQL sorgusunun sonucunu önbelleğe alır ve tüm sonuç kümesini döndürür. Bu fonksiyon, sayfalama gerektirmeyen ve tüm sonuçların tek bir istekte döndürülmesi gereken durumlar için kullanılır.
-
-Öte yandan, getCacheQueryPagination fonksiyonu, sonuçları sayfalara ayırarak önbelleğe alır ve istenilen sayfadaki sonuçları döndürür. Bu fonksiyon, büyük sonuç kümelerinin sayfalara bölünerek döndürülmesi gereken durumlar için kullanılır.
-
-Özetle, getCacheQuery ve getCacheQueryPagination fonksiyonları arasındaki temel fark, sayfalama özelliğinin desteklenmesidir. Sayfalama gerektiren durumlar için getCacheQueryPagination, diğer durumlar için ise getCacheQuery kullanılır.
-
-
-
-## QuaryCache kullanım önerisi incelemesi
--------
-Bu fonksiyon, SQL sorgusunu çalıştırır ve ardından belirtilen önbellek anahtarını sıfırlar. Bu, önbellekte saklanan eski verilerin güncellendiğinde otomatik olarak temizlenmesini sağlar.
-
-```sh
-  QuaryCache("sql", parameterArray, "cache key to reset")
-    .then((data) => {
-        return data;
-    }).catch(err => {
-        throw err;
-    });
-```
-## Örnek kullanım:
-```sh
-
- QuaryCache("insert into users set fullname=? ,email=?,password=?,companyId=?", [fullname, email, password, companyId], "userlist-" + companyId)
-    .then((data) => {
-        return data;
-    }).catch(err => {
-        throw err;
-    });
-```
-
-
-Bu örnekte, "insert into users set fullname=?, email=?, password=?, companyId=?" ifadesiyle bir SQL sorgusu yapılıyor. Burada yine ? işaretleri kullanılarak parametreler temsil ediliyor ve bu parametrelerin değerleri bir dizi olarak veriliyor. Bu örnekte [fullname, email, password, companyId] olarak verilmiştir.
-
-İşlem tamamlandığında, belirtilen önbellek anahtarını sıfırlamak için "userlist-" + companyId şeklinde bir önbellek anahtarı belirtilir. Bu durumda, yeni bir kullanıcı eklendiğinde, önbellekteki ilgili şirketin kullanıcı listesinin güncellenmesi gerekmektedir.
-
-Yine then ve catch blokları, fonksiyonların başarılı sonuçlarını veya olası hatalarını işlemek için kullanılır. Başarılı bir sonuç durumunda, veriler döndürülürken, hata durumunda hata yakalanır ve işlenir.
-
-Bu örneklerde kullanılan ? işaretleri ve parametrelerin dizi olarak verilmesi, SQL sorgularını daha güvenli ve esnek hale getirir. Bu yapı, SQL Injection saldırılarını önlemeye yardımcı olur ve parametrelerin kolayca değiştirilmesine olanak tanır. Bu fonksiyonlar sayesinde, Redis ile önbellekleme ve MySQL ile veritabanı işlemleri arasındaki entegrasyon daha düzgün ve kolay hale gelir.
-
-
-
-
-## Ortam Değişkenleri Örnekleri
-Örnek ortam değişkenleri dosya içeriği (.env dosyası):
-
----------
-``` sh
-Copy code
-## db veriables
+# MySQL Veritabanı Değişkenleri
 DB_HOST="localhost"
 DB_USERNAME="root"
 DB_PASSWORD=""
-DB_NAME=""
-DB_PORT=""
-TIMEZONE="+00:00" // default
+DB_NAME="veritabani_adiniz"
+DB_PORT="3306"
+TIMEZONE="+00:00"  # Varsayılan zaman dilimi
 
-## redis veriables
+# Redis Değişkenleri
 REDIS_SERVER="localhost"
 REDIS_PORT="6379"
 REDIS_PASSWORD=""
-
+REDIS_VHOST="uygulamam"  # İsteğe bağlı Redis anahtar öneki
 ```
 
-Geliştirme
-Lisans
+## Kullanım Kılavuzu
+
+### Temel Önbellekli Sorgu
+
+`getCacheQuery` fonksiyonu, SQL sorgularını çalıştırır ve sonuçları Redis'te önbelleğe alarak sonraki çağrılarda performansı artırır.
+
+#### Fonksiyon İmzası
+
+```javascript
+getCacheQuery(sql, parameters, cacheName)
+```
+
+- `sql`: Parametreli yer tutucular (?) içeren SQL sorgu metni
+- `parameters`: Yer tutucuları değiştirecek parametre değerlerinin dizisi
+- `cacheName`: Önbellekteki sonuç için benzersiz tanımlayıcı
+
+#### Örnek
+
+```javascript
+const { getCacheQuery } = require('mysql-redis-connector');
+
+// Belirli bir şirketin tüm kullanıcılarını getir
+getCacheQuery(
+  "SELECT * FROM users WHERE company_id = ?", 
+  [companyId], 
+  `userlist-${companyId}`
+)
+.then(data => {
+  // Veriyi işle
+  console.log(data);
+})
+.catch(err => {
+  console.error(err);
+});
+```
+
+### Sayfalama ile Önbellekli Sorgu
+
+`getCacheQueryPagination` fonksiyonu, sorgu sonuçlarının otomatik önbellekleme ile sayfalanmasını sağlar.
+
+#### Fonksiyon İmzası
+
+```javascript
+getCacheQueryPagination(sql, parameters, cacheName, page, pageSize = 30)
+```
+
+- `sql`: Parametreli yer tutucular (?) içeren SQL sorgu metni
+- `parameters`: Yer tutucuları değiştirecek parametre değerlerinin dizisi
+- `cacheName`: Önbellekteki sonuç için benzersiz tanımlayıcı
+- `page`: Sayfa numarası (0 tabanlı indeks)
+- `pageSize`: Sayfa başına öğe sayısı (varsayılan: 30)
+
+#### Örnek
+
+```javascript
+const { getCacheQueryPagination } = require('mysql-redis-connector');
+
+// Ürünlerin sayfalanmış listesini getir
+getCacheQueryPagination(
+  "SELECT * FROM products WHERE category = ? ORDER BY created_at DESC",
+  [categoryId],
+  `products-category-${categoryId}-page-${page}`,
+  page,
+  25  // Sayfa başına 25 öğe
+)
+.then(result => {
+  // Şunları içeren bir nesne döndürür:
+  // - totalCount: toplam kayıt sayısı
+  // - pageCount: toplam sayfa sayısı
+  // - detail: istenen sayfa için kayıt dizisi
+  console.log(`Gösterilen sayfa: ${page + 1} / ${result.pageCount}`);
+  console.log(`Toplam kayıt: ${result.totalCount}`);
+  console.log(result.detail);
+})
+.catch(err => {
+  console.error(err);
+});
+```
+
+### Veri Güncelleme ve Önbellek Temizleme
+
+`QuaryCache` fonksiyonu, yazma işlemlerini (INSERT, UPDATE, DELETE) gerçekleştirir ve ilgili önbellek girişlerini geçersiz kılar.
+
+#### Fonksiyon İmzası
+
+```javascript
+QuaryCache(sql, parameters, resetCacheName = null)
+```
+
+- `sql`: Parametreli yer tutucular (?) içeren SQL sorgu metni
+- `parameters`: Yer tutucuları değiştirecek parametre değerlerinin dizisi
+- `resetCacheName`: Geçersiz kılınacak önbellek anahtarı deseni (isteğe bağlı)
+
+#### Örnek
+
+```javascript
+const { QuaryCache } = require('mysql-redis-connector');
+
+// Yeni bir kullanıcı ekle ve kullanıcı listesi önbelleğini temizle
+QuaryCache(
+  "INSERT INTO users SET fullname = ?, email = ?, password = ?, company_id = ?",
+  [fullname, email, hashedPassword, companyId],
+  `userlist-${companyId}` // Bu desen ile eşleşen tüm anahtarları temizler
+)
+.then(result => {
+  console.log(`Kullanıcı eklendi, ID: ${result.insertId}`);
+})
+.catch(err => {
+  console.error(err);
+});
+```
+
+## Redis İsim Alanı (Namespace)
+
+Kütüphane, `REDIS_VHOST` ortam değişkeni aracılığıyla Redis anahtar isim alanını destekler. Bu, birden fazla uygulama aynı Redis örneğini paylaştığında anahtar çakışmalarını önler.
+
+`REDIS_VHOST` ayarlandığında, tüm anahtarlar otomatik olarak `{REDIS_VHOST}:` öneki ile başlar. Örneğin, `REDIS_VHOST=uygulamam` ile `userlist-123` adlı bir önbellek anahtarı, Redis'te `uygulamam:userlist-123` olarak saklanır.
+
+## Hata Yönetimi
+
+Tüm fonksiyonlar Promise döndürür, böylece `.then()/.catch()` ile Promise zincirleri veya async/await sözdizimini kullanabilirsiniz:
+
+```javascript
+// async/await kullanımı
+async function getUserData(companyId) {
+  try {
+    const users = await getCacheQuery(
+      "SELECT * FROM users WHERE company_id = ?",
+      [companyId],
+      `userlist-${companyId}`
+    );
+    return users;
+  } catch (error) {
+    console.error("Kullanıcılar getirilemedi:", error);
+    throw error;
+  }
+}
+```
+
+## En İyi Uygulamalar
+
+1. **Anlamlı Önbellek Anahtarları Seçin**: Önbellek anahtarlarınızı benzersiz kılmak için tanımlayıcılar ekleyin (örn. `products-category-${categoryId}`).
+
+2. **Uygun Son Kullanma Süreleri Ayarlayın**: Varsayılan önbellek süresi 40.000 saniyedir (~11 saat). Veri değişkenliğinize göre bu süreyi ayarlayın.
+
+3. **Önbellek Temizlemeyi Yönetin**: Veri değişikliklerinden sonra, önbellekteki verileri güncel tutmak için uygun önbellek desenleriyle `QuaryCache` fonksiyonunu çağırın.
+
+4. **İsim Alanlarını Kullanın**: Paylaşılan Redis ortamlarında anahtar çakışmalarını önlemek için `REDIS_VHOST` ortam değişkenini ayarlayın.
+
+5. **Her Zaman Parametreli Sorgular Kullanın**: SQL enjeksiyon saldırılarını önlemek için değerleri asla doğrudan SQL metinlerine birleştirmeyin.
+
+## Lisans
+
 MIT
-[git-repo-url]: https://github.com/hayatialikeles/NODE-CACHING-MYSQL-CONNECTOR-WITH-REDIS.git
+
+## Gelecek Yol Haritası
+
+Kütüphanenin gelecek versiyonlarında planlanan geliştirmeler:
+
+1. **Redis Cluster Desteği**: Yüksek kullanılabilirlik ve ölçeklenebilirlik için Redis Cluster desteği.
+
+2. **Otomatik Önbellek Yenileme**: Belirli bir süre sonra otomatik olarak önbelleği arka planda yenileme özelliği.
+
+3. **İzleme ve Metrikler**: Önbellek isabet oranı, sorgu performansı ve Redis durum metrikleri için izleme araçları.
+
+4. **Dağıtılmış Kilit Mekanizması**: Eşzamanlı istemciler arasında veri tutarlılığını sağlamak için dağıtılmış kilit desteği.
+
+5. **Şema Değişikliği Yönetimi**: Veritabanı şeması değişikliklerinde önbelleği otomatik temizleme mekanizması.
+
+6. **TypeScript Desteği**: Tam TypeScript tiplerini ve desteklerini içeren TypeScript sürümü.
+
+7. **İnce Ayarlı Önbellek Stratejileri**: LRU, TTL, FIFO gibi farklı önbellekleme stratejileri arasında seçim yapma olanağı.
+
+8. **Olay Tabanlı Önbellek Geçersiz Kılma**: Uygulama olaylarına dayalı otomatik önbellek geçersiz kılma sistemi.
+
+## GitHub Deposu
+
+[https://github.com/hayatialikeles/NODE-CACHING-MYSQL-CONNECTOR-WITH-REDIS](https://github.com/hayatialikeles/NODE-CACHING-MYSQL-CONNECTOR-WITH-REDIS)
